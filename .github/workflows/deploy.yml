@@ -1,0 +1,34 @@
+name: Deploy to Oracle ADB
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Java (Likely required for SQLcl)
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install SQLcl
+      run: |
+        curl -L -o sqlcl.zip https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip
+        unzip -q sqlcl.zip
+        # Add to PATH
+        echo "$(pwd)/sqlcl/bin" >> $GITHUB_PATH
+        # Permissions
+        chmod +x sqlcl/bin/sql
+
+    - name: Run SQLcl Deployment (Liquibase)
+      env:
+        DB_CONNECTION: ${{ secrets.ORACLE_DB_CONNECTION }} # Format: user/pass@host:port/service
+      run: |
+        sql -noupdates -silent "$DB_CONNECTION" lb update -changelog src/controller.xml

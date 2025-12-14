@@ -2,104 +2,141 @@
 
 このプロジェクトは、**Oracle Database 23ai MLE (Multilingual Engine)** を活用し、JavaScriptとORDSを用いてデータベース内で完結する高性能なWebアプリケーションロジックを実装したサンプルです。
 
-主な特徴:
-- **ハイブリッド・データモデル**: JSON (`SNEAKERS`) + リレーショナル (`ORDERS`)。
-- **データベース内 JavaScript**: 価格計算や在庫管理などのビジネスロジックを、MLEを介してDB内部で実行します。
-- **REST API**: ORDSにより直接APIを公開（外部のAPサーバーは不要）。
+## アーキテクチャ解説
+
+本アプリケーションは、**「在庫管理」における厳密な整合性** と **「Web API」としての使いやすさ** を両立するために、以下のハイブリッド構成を採用しています。
+
+### 1. データフローとコンポーネント
+
+```mermaid
+graph TD
+    User((User)) -->|POST /api/buy| ORDS[ORDS (REST API)]
+    subgraph Oracle Database 23ai
+        ORDS -->|Binds :id, :user| PLSQL[PL/SQL Wrapper (buy_kicks)]
+        PLSQL -->|Call| MLE[JavaScript Logic (purchase)]
+        
+        MLE -->|1. Lock & Get| Sneakers[(Sneakers Table / JSON)]
+        MLE -->|2. Calc Price| Logic{Pricing Logic}
+        MLE -->|3. Update Stock| Sneakers
+        MLE -->|4. Record Order| Orders[(Orders Table / Relational)]
+    end
+    MLE -->|Return Result| PLSQL
+    PLSQL -->|JSON Response| User
+```
+
+### 2. 具体的なコードの振る舞い (購入処理の例)
+
+ユーザーが `POST /api/buy` を叩いたとき、システム内部では以下のようにバトンが渡されます。
+
+#### A. 入り口: ORDS (src/ords/sneaker_api.sql)
+HTTPリクエストを受け取り、JSONボディの値（`id`, `size` 等）を自動的にバインド変数に変換して PL/SQL を呼び出します。
+```sql
+ORDS.DEFINE_SERVICE(
+  p_pattern => 'buy',
+  p_source  => 'BEGIN buy_kicks(:id, :size, :user, :premium, :status); END;'
+);
+```
+
+#### B. 橋渡し: PL/SQL Wrapper (src/plsql/wrappers.sql)
+プロシージャ `buy_kicks` は、単なる「土管」として機能し、実際の処理をJavaScript関数 `purchase` へ委譲します。
+```sql
+-- JSの 'purchase' 関数へマッピング
+SIGNATURE 'purchase(number, string, string, number)';
+```
+
+#### C. コアロジック: MLE JavaScript (src/mle/sneaker_logic.js)
+ここが心臓部です。GraalVM上で動作するJavaScriptが、データベースと直結してビジネスロジックを実行します。
+
+1.  **行ロックによる同時実行制御**:
+    ```javascript
+    // SELECT ... FOR UPDATE で対象のスニーカー行をロック。
+    // 他の人が同時に買おうとしても、この処理が終わるまで待たされます（在庫の矛盾を防ぐ）。
+    const rows = session.execute(..., "SELECT data FROM sneakers ... FOR UPDATE", [id]);
+    ```
+2.  **インメモリでの在庫チェック & 減算**:
+    ```javascript
+    // DBから取得したJSONオブジェクトをメモリ上で操作
+    if (snkData.sizes[size] <= 0) return { status: "FAIL", message: "Out of stock" };
+    snkData.sizes[size] -= 1; // 在庫を減らす
+    ```
+3.  **データベースへの書き戻し**:
+    ```javascript
+    // 更新後のJSONをDBに保存
+    session.execute("UPDATE sneakers SET data = :1 ...", [JSON.stringify(snkData), id]);
+    // 注文履歴も同時に記録（同一トランザクション）
+    session.execute("INSERT INTO orders ...", ...);
+    ```
+
+この一連の流れが **1つのデータベーストランザクション** として完結するため、ネットワーク遅延も発生せず、データの不整合も起きません。これが "SmartDB" アーキテクチャの強みです。
+
+---
 
 ## 前提条件
 - Oracle Database 23ai (Always Free, BaseDB, または ATP)
-- `ADMIN` 権限を持つユーザー、もしくは `DB_DEVELOPER_ROLE` を持つユーザー。
+- `ADMIN` 権限を持つユーザー、もしくは `DB_DEVELOPER_ROLE` を持つユーザー
+- Linux 環境 または GitHub Actions (CI/CD)
+- **SQLcl** がインストールされていること
 
-## インストール手順
-
-### 1. データベース・オブジェクトのセットアップ
-**SQL*Plus** または **SQLcl** を使用し、以下のスクリプトを順に実行してください。
-*注: `ADMIN` ユーザーでの実行を推奨します。*
-
-```sql
--- 1. テーブル作成
-@src/sql/01_ddl.sql
-
--- 2. MLE JavaScriptモジュール (ビジネスロジック) のデプロイ
--- *23ai向けのIterable対応および配列バインド修正済み*
-@src/sql/02_mle_module.sql
-
--- 3. PL/SQLラッパーと関数インデックスの作成
-@src/sql/03_plsql_wrappers.sql
-
--- 4. ORDS REST API の設定
-@src/sql/04_ords_rest.sql
+## ディレクトリ構成
+```text
+/
+├── .github/workflows/   # GitHub Actions (CI/CD) 定義
+├── deploy.sh            # デプロイ用スクリプト (Bash)
+├── src/
+│   ├── database/        # テーブル定義 (DDL)
+│   ├── mle/             # MLE JavaScript ロジック (.js)
+│   ├── plsql/           # PL/SQL ラッパー
+│   └── ords/            # ORDS API 定義
 ```
 
-> **ヒント**: `SP2-0310` (ファイルが見つかりません) エラーが出る場合は、`@` コマンドでファイルの**絶対パス**を指定してください。
-
-### 2. テストデータの投入
-動作確認用にスニーカーのサンプルデータを登録します。
-
-```sql
-TRUNCATE TABLE orders;
-TRUNCATE TABLE sneakers;
-
--- 1. 通常商品 (Air Jordan 1)
-INSERT INTO sneakers (data) VALUES ('{"model": "Air Jordan 1", "price": 200, "sizes": {"US10": 10, "US9": 1}, "is_collab": false}');
-
--- 2. コラボ商品 (割引対象外)
-INSERT INTO sneakers (data) VALUES ('{"model": "Yeezy Boost", "price": 300, "sizes": {"US10": 5}, "is_collab": true}');
-
--- 3. 希少商品 (在庫僅少)
-INSERT INTO sneakers (data) VALUES ('{"model": "Rare Air", "price": 1000, "sizes": {"US10": 1}, "is_collab": false}');
-
-COMMIT;
+## ディレクトリ構成
+```text
+/
+├── .github/workflows/   # GitHub Actions (CI/CD) 定義
+├── src/
+│   └── database/
+│       ├── controller.xml       # Root Changelog (ここから全て実行)
+│       └── changelogs/          # Liquibase 定義ファイル
+│           ├── mle_logic.sql    # MLE JavaScript ロジック (SQLラップ)
+│           ├── tables_lb.sql    # テーブル定義
+│           ├── wrappers.sql     # PL/SQL ラッパー
+│           └── ords.sql         # ORDS API 定義
 ```
 
-## 使用方法 (API動作確認)
+## デプロイ手順 (SQLcl & Liquibase)
 
-`<your-db-hostname>` の部分は、実際のADBのホスト名 (例: `nbi1xuni.adb.ap-tokyo-1.oraclecloud.com`) に置き換えてください。
-ADMINユーザーのデフォルトORDSベースパスは通常 `/ords/admin` です。
-
-### 1. スニーカー検索 (GET)
-**ロジック**: MLEを使用して動的に価格を計算します。プレミアム会員には非コラボ商品に対して10%の割引が適用されます。
+本プロジェクトでは **Liquibase** を使用してデータベースの状態を管理します。
+SQLcl がインストールされた環境であれば、以下のコマンド一発で最新の状態へ移行できます。
 
 ```bash
-# ケース A: 通常ユーザー (予算: 100,000円)
-# 期待される価格: 30,000円 (200ドル * 150円)
+# Liquibase update コマンドを実行
+sql -silent "ADMIN/your_password@host:port/service_name" lb update -changelog src/controller.xml
+```
+
+このコマンドは `src/controller.xml` を読み込み、変更が必要な部分（差分）のみをデータベースに適用します。
+JavaScriptロジックやPL/SQLを修正した場合は、自動的に再デプロイされます (`runOnChange:true` 設定済み)。
+
+### GitHub Actions での実行
+`.github/workflows/deploy.yml` はこの `script` コマンドを直接実行するように設定されています。
+Githubの設定(Secrets)に `ORACLE_DB_CONNECTION` を追加してください。
+
+## 動作確認 (Verification)
+
+デプロイ完了後、以下の `curl` コマンドで動作を確認できます。
+
+### 1. 検索 (GET)
+```bash
+# 通常ユーザー検索 (30,000 JPY)
 curl -X GET "https://nbi1xuni.adb.ap-tokyo-1.oraclecloud.com/ords/admin/api/search?premium=0&budget=100000"
 
-# ケース B: プレミアムユーザー
-# 期待される価格: 27,000円 (10%割引適用)
+# プレミアムユーザー検索 (27,000 JPY)
 curl -X GET "https://nbi1xuni.adb.ap-tokyo-1.oraclecloud.com/ords/admin/api/search?premium=1&budget=100000"
 ```
 
-### 2. スニーカー購入 (POST)
-**ロジック**: 在庫チェック、在庫の減算(アトミック処理)、注文記録を一括で行います。
-
+### 2. 購入 (POST)
 ```bash
-# ケース C: 通常商品の購入 (ID: 1)
+# 購入実行
 curl -X POST "https://nbi1xuni.adb.ap-tokyo-1.oraclecloud.com/ords/admin/api/buy" \
      -H "Content-Type: application/json" \
-     -d '{"id": 1, "size": "US10", "user": "test_user", "premium": 0}'
-
-# ケース D: 在庫切れテスト (ID: 3, 在庫: 1)
-# 2回実行してください。2回目は失敗するはずです。
-curl -X POST "https://nbi1xuni.adb.ap-tokyo-1.oraclecloud.com/ords/admin/api/buy" \
-     -H "Content-Type: application/json" \
-     -d '{"id": 3, "size": "US10", "user": "late_user", "premium": 0}'
+     -d '{"id": 1, "size": "US10", "user": "test_linux", "premium": 0}'
 ```
-
-## トラブルシューティング
-
-### ORA-04161 と result.next のエラー
-Oracle Database 23ai の MLE では、`session.execute` の戻り値は従来の ResultSet ではなく **Iterable** となっています。そのため `.next()` メソッドではなく、`Array.from(result)` や `for..of` ループを使用する必要があります。本プロジェクトでは修正済みのコードを使用しています。
-
-### ORA-04163 や バインドエラー
-JavaScriptオブジェクト越しに名前付きバインド変数（例: `:id`）を使用すると、ドライバのバージョンによっては型不一致や「Not Found」エラーが発生することがあります。本プロジェクトでは、より堅牢な **位置指定バインド (Positional Binds, `:1`)** と **配列渡し (`[value]`)** を採用しています。
-
-### ORDS で 404 Not Found が出る場合
-1. URLに正しいスキーマエイリアス（デフォルトは `admin`）が含まれているか確認してください。
-2. もしスキーママッピングがおかしくなった場合は、以下のSQLでリセットできます:
-   ```sql
-   BEGIN
-     ORDS.ENABLE_SCHEMA(p_enabled => TRUE, p_schema => 'ADMIN', p_url_mapping_pattern => 'admin', ...);
-   END;
-   ```

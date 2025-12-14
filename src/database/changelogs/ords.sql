@@ -1,18 +1,10 @@
--- 04_ords_rest.sql
--- ORDS REST API Definitions
+--liquibase formatted sql
+
+--changeset sneaker_dev:ords_v1 runOnChange:true
+--comment ORDS Services Definition
 
 BEGIN
-  -- Disable ORDS first to allow re-mapping
-  BEGIN
-      ORDS.ENABLE_SCHEMA(
-        p_enabled => FALSE,
-        p_schema  => USER
-      );
-  EXCEPTION WHEN OTHERS THEN NULL; -- Ignore if already disabled
-  END;
-
   -- Enable ORDS for the current schema
-  -- Replace 'sneakerheadz' with your desired base path mapping if needed
   ORDS.ENABLE_SCHEMA(
     p_enabled             => TRUE,
     p_schema              => USER,
@@ -24,7 +16,6 @@ BEGIN
   -- MODULE: sneaker_v1
   
   -- 1. GET /api/search
-  -- Uses FBI for fast filtering ensuring 'One-Shot' read performance
   ORDS.DEFINE_SERVICE(
     p_module_name => 'sneaker_v1',
     p_base_path   => '/api/',
@@ -35,19 +26,13 @@ BEGIN
       'SELECT id, 
               s.data.model, 
               get_price_js(s.data, :premium) as price,
-              s.data.sizes -- returning sizes for UI
+              s.data.sizes 
        FROM sneakers s 
        WHERE get_price_js(s.data, :premium) <= :budget
        ORDER BY price ASC'
   );
 
   -- 2. POST /api/buy
-  -- Invokes the MLE Transaction Logic
-  -- Input (Body JSON) is mapped to Bind Variables by ORDS automatically if names match?
-  -- Wait, for source_type_plsql with POST, we usually map parameters explicitly or rely on JSON body mapping?
-  -- ORDS 22+ supports implicit mapping if content-type is application/json.
-  -- Binds :id, :size, :user, :premium will be extracted from JSON body.
-  -- :status will be returned in the response headers or body.
   ORDS.DEFINE_SERVICE(
     p_module_name => 'sneaker_v1',
     p_base_path   => '/api/',
@@ -60,3 +45,4 @@ BEGIN
   COMMIT;
 END;
 /
+--rollback BEGIN ORDS.DELETE_MODULE(p_module_name => 'sneaker_v1'); END;
