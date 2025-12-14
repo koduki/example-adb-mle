@@ -95,12 +95,13 @@ SIGNATURE 'purchase(number, string, string, number)';
 ├── .github/workflows/   # GitHub Actions (CI/CD) 定義
 ├── src/
 │   └── database/
-│       ├── controller.xml       # Root Changelog (ここから全て実行)
-│       └── changelogs/          # Liquibase 定義ファイル
-│           ├── mle_logic.sql    # MLE JavaScript ロジック (SQLラップ)
-│           ├── tables_lb.sql    # テーブル定義
-│           ├── wrappers.sql     # PL/SQL ラッパー
-│           └── ords.sql         # ORDS API 定義
+│       ├── controller.xml       # Root Changelog (includeAll で一括読込)
+│       └── changelogs/          # Liquibase 定義ファイル (実行順序はプレフィックスで制御)
+│           ├── 10_tables.sql
+│           ├── 20_mle_wrapper.sql
+│           ├── 30_wrappers.sql
+│           ├── 40_indexes.sql
+│           └── 50_ords.sql
 ```
 
 ## デプロイ手順 (SQLcl & Liquibase)
