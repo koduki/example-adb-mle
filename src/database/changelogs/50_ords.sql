@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset sneaker_dev:ords_v1 runOnChange:true
+--changeset sneaker_dev:ords_v2_redefine runOnChange:true
 --comment ORDS Services Definition
 
 BEGIN
@@ -21,15 +21,26 @@ BEGIN
   END;
 
   -- MODULE: sneaker_v1
-  
+  ORDS.DEFINE_MODULE(
+    p_module_name    => 'sneaker_v1',
+    p_base_path      => '/api/',
+    p_items_per_page => 25,
+    p_status         => 'PUBLISHED',
+    p_comments       => 'SneakerHeadz API'
+  );
+
   -- 1. GET /api/search
-  ORDS.DEFINE_SERVICE(
-    p_module_name => 'sneaker_v1',
-    p_base_path   => '/api/',
-    p_pattern     => 'search',
-    p_method      => 'GET',
-    p_source_type => ORDS.source_type_collection_feed,
-    p_source      => 
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name    => 'sneaker_v1',
+    p_pattern        => 'search'
+  );
+
+  ORDS.DEFINE_HANDLER(
+    p_module_name    => 'sneaker_v1',
+    p_pattern        => 'search',
+    p_method         => 'GET',
+    p_source_type    => ORDS.source_type_collection_feed,
+    p_source         => 
       'SELECT id, 
               s.data.model, 
               get_price_js(s.data, :premium) as price,
@@ -40,13 +51,17 @@ BEGIN
   );
 
   -- 2. POST /api/buy
-  ORDS.DEFINE_SERVICE(
-    p_module_name => 'sneaker_v1',
-    p_base_path   => '/api/',
-    p_pattern     => 'buy',
-    p_method      => 'POST',
-    p_source_type => ORDS.source_type_plsql,
-    p_source      => 'BEGIN buy_kicks(:id, :size, :user, :premium, :status); END;'
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name    => 'sneaker_v1',
+    p_pattern        => 'buy'
+  );
+
+  ORDS.DEFINE_HANDLER(
+    p_module_name    => 'sneaker_v1',
+    p_pattern        => 'buy',
+    p_method         => 'POST',
+    p_source_type    => ORDS.source_type_plsql,
+    p_source         => 'BEGIN buy_kicks(:id, :size, :user, :premium, :status); END;'
   );
   
   COMMIT;
