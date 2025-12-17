@@ -10,10 +10,10 @@
 
 ```mermaid
 graph TD
-    User((User)) -->|POST /api/buy| ORDS[ORDS (REST API)]
+    User((User)) -->|POST /api/buy| ORDS["ORDS (REST API)"]
     subgraph Oracle Database 23ai
-        ORDS -->|Binds :id, :user| PLSQL[PL/SQL Wrapper (buy_kicks)]
-        PLSQL -->|Call| MLE[JavaScript Logic (purchase)]
+        ORDS -->|Binds :id, :user| PLSQL[PL/SQL Wrapper]
+        PLSQL -->|Call| MLE[JavaScript Logic]
         
         MLE -->|1. Lock & Get| Sneakers[(Sneakers Table / JSON)]
         MLE -->|2. Calc Price| Logic{Pricing Logic}
