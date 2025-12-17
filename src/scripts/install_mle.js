@@ -9,18 +9,8 @@
 // In SQLcl 'script file.js arg1 arg2', args is an array of arguments.
 // args[0] = arg1, args[1] = arg2
 
-var System = Java.type("java.lang.System");
-
-System.out.println("DEBUG: install_mle.js started");
-System.out.println("DEBUG: args.length = " + args.length);
-for (var i = 0; i < args.length; i++) {
-    System.out.println("DEBUG: args[" + i + "] = " + args[i]);
-}
-
 if (args.length < 2) {
-    System.out.println("Error: Missing arguments. Usage: script install_mle.js <js_path> <module_name>");
-    // ctx.write("Error: Missing arguments. Usage: script install_mle.js <js_path> <module_name>\n");
-    // Java.type("java.lang.System").exit(1); // Do not kill the session, just throw
+    ctx.write("Error: Missing arguments. Usage: script install_mle.js <js_path> <module_name>\n");
     throw "Missing arguments";
 }
 
@@ -33,7 +23,7 @@ var Files = Java.type("java.nio.file.Files");
 var String = Java.type("java.lang.String");
 
 try {
-    ctx.write("Deploying MLE Module: " + moduleName + " from " + jsPath + "\n");
+    ctx.write("DEBUG: Deploying MLE Module: " + moduleName + " from " + jsPath + "\n");
 
     // Check file existence
     if (!Files.exists(Path.get(jsPath))) {
@@ -46,8 +36,11 @@ try {
     // Construct DDL
     // Using CREATE OR REPLACE to ensure updates match the file content
     // Use q-quote syntax to avoid escaping single quotes in JS code
-    var ddl = "CREATE OR REPLACE MLE MODULE " + moduleName + " LANGUAGE JAVASCRIPT AS q'~" +
-        content + "~';\n/\n";
+    // Ensure module name is upper case
+    var ddl = "CREATE OR REPLACE MLE MODULE " + moduleName.toUpperCase() + " LANGUAGE JAVASCRIPT AS q'~" +
+        content + "~';";
+
+    ctx.write("DEBUG: Executing DDL:\n" + ddl + "\n");
 
     // Execute
     sqlcl.setStmt(ddl);
