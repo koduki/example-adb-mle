@@ -13,7 +13,7 @@ export function hello() {
 export function echo(message) {
     return "Echo: " + message;
 }
-
+/
 
 -- Check for errors and Raise if Invalid
 DECLARE
