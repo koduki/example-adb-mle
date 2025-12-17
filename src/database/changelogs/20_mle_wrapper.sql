@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset sneaker_dev:mle_deploy_v1 runAlways:true
+--changeset sneaker_dev:mle_deploy_v1 runAlways:true endDelimiter:/
 --comment Deploy MLE Module (Source in src/mle/sneaker_logic.js)
 -- Usage: script <loader_script> <source_file> <module_name>
 
