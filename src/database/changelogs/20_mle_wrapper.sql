@@ -63,10 +63,23 @@ export function purchase(sneakerId, size, userId, isPremium) {
     const rows = Array.from(session.execute(query, binds));
 
     if (rows.length === 0) {
-        /* Debug Visibility: Count all rows */
-        let countRows = Array.from(session.execute("SELECT COUNT(*) AS CNT FROM sneakers"));
-        let countVal = (countRows.length > 0) ? countRows[0].CNT : "Error";
-        return { status: "FAIL", message: "Sneaker not found (Hardcoded Debug). Table Count=" + countVal };
+        let debugMsg = "Sneaker not found (Hardcoded Debug).";
+        try {
+            /* 1. Check DUAL to confirm DB access works at all */
+            let dualRows = Array.from(session.execute("SELECT 'OK' AS RES FROM DUAL"));
+            let dualVal = (dualRows.length > 0) ? dualRows[0].RES : "EmptyDual";
+            debugMsg += " Dual=" + dualVal;
+
+            /* 2. Check Table Count if DUAL works */
+            if (dualVal === 'OK') {
+                let countRows = Array.from(session.execute("SELECT COUNT(*) AS CNT FROM sneakers"));
+                let countVal = (countRows.length > 0) ? countRows[0].CNT : "EmptyCount";
+                debugMsg += " TableCount=" + countVal;
+            }
+        } catch (e) {
+            debugMsg += " DBError=" + e.message;
+        }
+        return { status: "FAIL", message: debugMsg };
     }
 
     /* Retrieve JSON data (Column name is usually uppercase 'DATA') */
