@@ -7,12 +7,19 @@ This document collects important lessons learned and debugging tips for deployin
 When embedding JavaScript code directly in a SQL changelog, follow these rules strictly:
 
 *   **No Quotes**: Do not use `q'~...~'` or invalid quoting mechanisms for the body. Use the `AS` keyword followed immediately by the raw JavaScript code.
-*   **Terminator is Mandatory**: You **MUST** end the module definition with a forward slash (`/`) on a new line after the JavaScript code. Without this, SQLcl treats the subsequent SQL as part of the JS code, causing syntax errors.
+*   **Terminator is Mandatory**: You **MUST** end the module definition with a forward slash (`/`) on a new line after the JavaScript code.
+*   **Avoid Single-Line Comments**: Do **NOT** use `//` comments in your JavaScript code if you are using `/` as the delimiter in Liquibase. Liquibase (and SQLcl) may confuse the slashes in `//` with the terminator. Use `/* ... */` block comments instead.
 
 **Bad:**
-```sql
-CREATE MLE MODULE my_mod LANGUAGE JAVASCRIPT AS q'~ ... ~';
--- Missing /
+```javascript
+// This comment might break the parser!
+export function test() { return 1; }
+```
+
+**Good:**
+```javascript
+/* Safe comment */
+export function test() { return 1; }
 ```
 
 **Good:**
