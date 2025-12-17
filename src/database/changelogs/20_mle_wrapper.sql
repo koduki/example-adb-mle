@@ -56,7 +56,7 @@ export function purchase(sneakerId, size, userId, isPremium) {
     ));
 
     if (rows.length === 0) {
-        return { status: "FAIL", message: "Sneaker not found" };
+        return { status: "FAIL", message: "Sneaker not found. ID=" + sneakerId + ", Type=" + typeof sneakerId };
     }
 
     /* Retrieve JSON data (Column name is usually uppercase 'DATA') */
