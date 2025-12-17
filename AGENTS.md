@@ -44,9 +44,9 @@ CREATE MLE MODULE ...
 
 Mapping PL/SQL types to JavaScript types requires specific signatures.
 
-*   **JSON Handling**: Do **NOT** use `any` in the signature map even if the PL/SQL parameter is `JSON`. Use `object`.
-    *   ❌ `SIGNATURE 'calculate(any)'` -> Causes `PLS-00905` (Invalid Object)
-    *   ✅ `SIGNATURE 'calculate(object)'`
+*   **JSON Handling**: Oracle's native `JSON` type maps to the generic `any` type in the MLE signature (it appears as a JS object or string at runtime).
+    *   ❌ `SIGNATURE 'calculate(object)'` -> Causes `ORA-04163: invalid mapping`
+    *   ✅ `SIGNATURE 'calculate(any)'`
 
 ## 3. Liquibase Formatted SQL Headers
 

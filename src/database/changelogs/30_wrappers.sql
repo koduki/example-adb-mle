@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset sneaker_dev:wrappers_v4_final runOnChange:true
+--changeset sneaker_dev:wrappers_v5_fix_sig runOnChange:true
 --comment Create PL/SQL Wrappers linking to MLE
 -- Restoring full business logic
 
@@ -9,7 +9,7 @@ CREATE OR REPLACE FUNCTION get_price_js(p_data JSON, p_is_premium NUMBER)
 RETURN NUMBER 
 DETERMINISTIC
 AS MLE MODULE sneaker_logic
-SIGNATURE 'calculatePrice(object, number)';
+SIGNATURE 'calculatePrice(any, number)';
 /
 
 -- 2. Procedure Wrapper for Purchase Transaction
