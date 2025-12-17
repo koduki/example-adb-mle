@@ -15,16 +15,17 @@ BEGIN
     SELECT data INTO v_json FROM sneakers WHERE id = 1;
     DBMS_OUTPUT.PUT_LINE(JSON_SERIALIZE(v_json));
 
-    DBMS_OUTPUT.PUT_LINE('Calling buy_kicks...');
-    buy_kicks(
+    DBMS_OUTPUT.PUT_LINE('Calling buy_kicks_internal...');
+    v_json := buy_kicks_internal(
         p_id => 1,
         p_size => 'US10',
         p_user => 'debug_plsql',
-        p_premium => 0,
-        p_status => v_status
+        p_premium => 0
     );
     
-    DBMS_OUTPUT.PUT_LINE('Status Return: ' || v_status);
+    DBMS_OUTPUT.PUT_LINE('Result JSON: ' || JSON_SERIALIZE(v_json));
+    v_status := JSON_VALUE(v_json, '$.status');
+
     
     DBMS_OUTPUT.PUT_LINE('Post Stock Check:');
     SELECT data INTO v_json FROM sneakers WHERE id = 1;
