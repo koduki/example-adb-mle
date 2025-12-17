@@ -10,9 +10,10 @@ SELECT name, uri_prefix, status
 FROM user_ords_modules;
 
 PROMPT === CHECKING ORDS SERVICES (TEMPLATES) ===
-SELECT module_name, uri_template, method 
-FROM user_ords_templates t
+SELECT m.name AS module_name, t.uri_template, h.method 
+FROM user_ords_modules m
+JOIN user_ords_templates t ON m.id = t.module_id
 JOIN user_ords_handlers h ON t.id = h.template_id
-ORDER BY module_name, uri_template;
+ORDER BY m.name, t.uri_template;
 
 exit
