@@ -36,8 +36,9 @@ try {
 
     // Construct DDL
     // Using CREATE OR REPLACE to ensure updates match the file content
-    var ddl = "CREATE OR REPLACE MLE MODULE " + moduleName + " LANGUAGE JAVASCRIPT AS\n" +
-        content + "\n/\n";
+    // Use q-quote syntax to avoid escaping single quotes in JS code
+    var ddl = "CREATE OR REPLACE MLE MODULE " + moduleName + " LANGUAGE JAVASCRIPT AS q'~" +
+        content + "~';\n/\n";
 
     // Execute
     sqlcl.setStmt(ddl);

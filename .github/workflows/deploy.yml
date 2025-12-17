@@ -31,4 +31,7 @@ jobs:
       env:
         DB_CONNECTION: ${{ secrets.ORACLE_DB_CONNECTION }} # Format: user/pass@host:port/service
       run: |
-        sql -noupdates -silent "$DB_CONNECTION" lb update -changelog src/controller.xml
+        sql -S -noupdates "$DB_CONNECTION" <<'SQL'
+        lb update -changelog-file src/controller.xml
+        exit
+        SQL

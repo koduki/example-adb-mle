@@ -110,8 +110,11 @@ SIGNATURE 'purchase(number, string, string, number)';
 SQLcl がインストールされた環境であれば、以下のコマンド一発で最新の状態へ移行できます。
 
 ```bash
-# Liquibase update コマンドを実行
-sql -silent "ADMIN/your_password@host:port/service_name" lb update -changelog src/controller.xml
+sql -S -cloudconfig Wallet_ODBGTEST001.zip admin/xxxx@ODBGTEST001_HIGH <<'SQL'
+cd /home/ext_pascalm3_gmail_com/example-adb-mle
+lb update -changelog-file src/controller.xml
+exit
+SQL
 ```
 
 このコマンドは `src/controller.xml` を読み込み、変更が必要な部分（差分）のみをデータベースに適用します。
