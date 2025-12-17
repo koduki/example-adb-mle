@@ -95,12 +95,20 @@ export function purchase(sneakerId, size, userId, isPremium) {
 }
 /
 
--- Check for errors and status
-PROMPT ** STATUS CHECK **
-SELECT object_name, object_type, status FROM user_objects WHERE object_name = 'SNEAKER_LOGIC';
-
-PROMPT ** ERROR CHECK **
-SELECT name, type, sequence, line, position, text FROM user_errors WHERE name = 'SNEAKER_LOGIC' ORDER BY sequence;
-
+-- Check for errors and Raise if Invalid
+DECLARE
+    v_status VARCHAR2(20);
+    v_err_msg VARCHAR2(4000);
+BEGIN
+    SELECT status INTO v_status FROM user_objects WHERE object_name = 'SNEAKER_LOGIC';
+    
+    IF v_status <> 'VALID' THEN
+        FOR r IN (SELECT text, line, position FROM user_errors WHERE name = 'SNEAKER_LOGIC' ORDER BY sequence) LOOP
+            v_err_msg := v_err_msg || 'Line ' || r.line || ': ' || r.text || CHR(10);
+        END LOOP;
+        raise_application_error(-20001, 'SNEAKER_LOGIC is INVALID: ' || CHR(10) || v_err_msg);
+    END IF;
+END;
+/
 
 --rollback DROP MLE MODULE sneaker_logic;
