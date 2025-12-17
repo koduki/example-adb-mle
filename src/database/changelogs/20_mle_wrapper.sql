@@ -67,13 +67,17 @@ export function purchase(sneakerId, size, userId, isPremium) {
         try {
             let res = session.execute("SELECT 'OK' AS RES FROM DUAL");
             debugMsg += " ResType=" + typeof res;
-            debugMsg += " HasNext=" + (typeof res.next === 'function');
-            debugMsg += " IsIterable=" + (typeof res[Symbol.iterator] === 'function');
+            debugMsg += " Keys=" + JSON.stringify(Object.keys(res));
+            // Check prototype methods
+            let proto = Object.getPrototypeOf(res);
+            if (proto) {
+                debugMsg += " ProtoKeys=" + JSON.stringify(Object.getOwnPropertyNames(proto));
+            }
+            debugMsg += " HasRowsProp=" + (res.rows !== undefined);
             
-            /* Attempt strict loop if possible */
-            if (res[Symbol.iterator]) {
-                let checkArr = Array.from(res);
-                debugMsg += " IterLen=" + checkArr.length;
+            // Try explicit fetch if fetch method exists
+            if (typeof res.fetch === 'function') {
+                 debugMsg += " CallFetch=" + JSON.stringify(res.fetch());
             }
         } catch (e) {
             debugMsg += " DBError=" + e.message;
