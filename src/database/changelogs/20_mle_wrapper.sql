@@ -60,6 +60,8 @@ export function purchase(sneakerId, size, userId, isPremium) {
         binds = [];
     }
     
+    const rows = Array.from(session.execute(query, binds));
+    
     if (rows.length === 0) {
         let debugMsg = "Sneaker not found (API Debug).";
         try {
