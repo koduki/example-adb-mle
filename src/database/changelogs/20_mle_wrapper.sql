@@ -4,7 +4,7 @@
 --comment Deploy MLE Module (Source in src/mle/sneaker_logic.js)
 -- Usage: script <loader_script> <source_file> <module_name>
 
-CREATE OR REPLACE MLE MODULE SNEAKER_LOGIC LANGUAGE JAVASCRIPT AS q'~
+CREATE OR REPLACE MLE MODULE SNEAKER_LOGIC LANGUAGE JAVASCRIPT AS q'|
 // Configuration
 const RATE_USD_JPY = 150;
 
@@ -92,8 +92,12 @@ export function purchase(sneakerId, size, userId, isPremium) {
     );
 
     return { status: "SUCCESS", message: "Purchased", price: finalPrice };
+    return { status: "SUCCESS", message: "Purchased", price: finalPrice };
 }
-~';
+|';
 /
+
+-- Check for errors
+SELECT line, position, text FROM user_errors WHERE name = 'SNEAKER_LOGIC' ORDER BY line, position;
 
 --rollback DROP MLE MODULE sneaker_logic;
