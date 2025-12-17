@@ -126,21 +126,31 @@ Githubの設定(Secrets)に `ORACLE_DB_CONNECTION` を追加してください�
 
 ## 動作確認 (Verification)
 
-デプロイ完了後、以下の `curl` コマンドで動作を確認できます。
+デプロイ完了後、以下の補助スクリプトを使って動作確認を行うことを推奨します。
 
-### 1. 検索 (GET)
+### 1. テストデータの初期化
+まず、テーブル（Sneakers/Orders）をクリーンアップし、初期データを投入します。
+
 ```bash
-# 通常ユーザー検索 (30,000 JPY)
-curl -X GET "https://nbi1xuni.adb.ap-tokyo-1.oraclecloud.com/ords/admin/api/search?premium=0&budget=100000"
-
-# プレミアムユーザー検索 (27,000 JPY)
-curl -X GET "https://nbi1xuni.adb.ap-tokyo-1.oraclecloud.com/ords/admin/api/search?premium=1&budget=100000"
+sql /nolog <<'EOF'
+connect admin/password@service_name
+@src/scripts/setup_data.sql
+exit
+EOF
 ```
 
-### 2. 購入 (POST)
+### 2. APIテスト (CURL)
+シェルスクリプト `test_api_curl.sh` を使用して、検索(GET)と購入(POST)をテストします。
+引数には **ORDSのベースURL** を指定してください。
+
+*   ORDSベースURLの例: `https://<hostname>/ords/<schema_alias>`
+    *   `<schema_alias>` はデフォルトで `admin` ですが、設定によっては `sneakerheadz` 等になる場合があります。
+    *   不明な場合は `src/scripts/debug_ords_status.sql` を実行して `PATTERN` を確認してください。
+
 ```bash
-# 購入実行
-curl -X POST "https://nbi1xuni.adb.ap-tokyo-1.oraclecloud.com/ords/admin/api/buy" \
-     -H "Content-Type: application/json" \
-     -d '{"id": 1, "size": "US10", "user": "test_linux", "premium": 0}'
+# 実行権限を付与
+chmod +x src/scripts/test_api_curl.sh
+
+# テスト実行 (URLは環境に合わせて変更してください)
+./src/scripts/test_api_curl.sh https://phmoqknr.adb.ap-tokyo-1.oraclecloud.com/ords/admin
 ```

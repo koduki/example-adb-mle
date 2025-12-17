@@ -77,3 +77,17 @@ END IF;
 If Liquibase says "Update Successful" but your verification fails (e.g., function missing):
 1.  **Check Git on Target**: Did you run `git pull` on the VM/Client?
 2.  **Check Changeset ID**: If `runOnChange` fails to trigger, change the `id` of the changeset (e.g., `v1` -> `v2`) to force a re-run.
+
+## 6. MLE JavaScript `session.execute` API
+
+In Oracle Database 23ai MLE, `session.execute()` returns a **Result Object**, not an Iterable directly.
+*   **Incorrect**: `const rows = Array.from(session.execute(...));` // Returns [] or fails
+*   **Correct**: `const rows = session.execute(...).rows;` // Access .rows property
+
+The result object structure is approximately:
+```json
+{
+  "metaData": [...],
+  "rows": [...]
+}
+```
