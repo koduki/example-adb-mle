@@ -60,21 +60,18 @@ export function purchase(sneakerId, size, userId, isPremium) {
         binds = [];
     }
     
-    const rows = Array.from(session.execute(query, binds));
-
     if (rows.length === 0) {
-        let debugMsg = "Sneaker not found (Hardcoded Debug).";
+        let debugMsg = "Sneaker not found (API Debug).";
         try {
-            /* 1. Check DUAL to confirm DB access works at all */
-            let dualRows = Array.from(session.execute("SELECT 'OK' AS RES FROM DUAL"));
-            let dualVal = (dualRows.length > 0) ? dualRows[0].RES : "EmptyDual";
-            debugMsg += " Dual=" + dualVal;
-
-            /* 2. Check Table Count if DUAL works */
-            if (dualVal === 'OK') {
-                let countRows = Array.from(session.execute("SELECT COUNT(*) AS CNT FROM sneakers"));
-                let countVal = (countRows.length > 0) ? countRows[0].CNT : "EmptyCount";
-                debugMsg += " TableCount=" + countVal;
+            let res = session.execute("SELECT 'OK' AS RES FROM DUAL");
+            debugMsg += " ResType=" + typeof res;
+            debugMsg += " HasNext=" + (typeof res.next === 'function');
+            debugMsg += " IsIterable=" + (typeof res[Symbol.iterator] === 'function');
+            
+            /* Attempt strict loop if possible */
+            if (res[Symbol.iterator]) {
+                let checkArr = Array.from(res);
+                debugMsg += " IterLen=" + checkArr.length;
             }
         } catch (e) {
             debugMsg += " DBError=" + e.message;
