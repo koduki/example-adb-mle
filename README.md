@@ -111,7 +111,7 @@ SQLcl がインストールされた環境であれば、以下のコマンド�
 
 ```bash
 sql -S -cloudconfig Wallet_ODBGTEST001.zip admin/xxxx@ODBGTEST001_HIGH <<'SQL'
-cd /home/ext_pascalm3_gmail_com/example-adb-mle
+lb clear-checksums
 lb update -changelog-file src/controller.xml
 exit
 SQL
