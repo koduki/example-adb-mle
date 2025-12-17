@@ -63,7 +63,10 @@ export function purchase(sneakerId, size, userId, isPremium) {
     const rows = Array.from(session.execute(query, binds));
 
     if (rows.length === 0) {
-        return { status: "FAIL", message: "Sneaker not found (Hardcoded Debug). ID=" + sneakerId };
+        /* Debug Visibility: Count all rows */
+        let countRows = Array.from(session.execute("SELECT COUNT(*) AS CNT FROM sneakers"));
+        let countVal = (countRows.length > 0) ? countRows[0].CNT : "Error";
+        return { status: "FAIL", message: "Sneaker not found (Hardcoded Debug). Table Count=" + countVal };
     }
 
     /* Retrieve JSON data (Column name is usually uppercase 'DATA') */
