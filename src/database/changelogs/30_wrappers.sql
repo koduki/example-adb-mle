@@ -2,14 +2,14 @@
 
 --changeset sneaker_dev:wrappers_v1 runOnChange:true
 --comment Create PL/SQL Wrappers linking to MLE
--- force retry v5
+-- force retry v6
 
 -- 1. Function Wrapper for calculatePrice
 CREATE OR REPLACE FUNCTION get_price_js(p_data JSON, p_is_premium NUMBER) 
 RETURN NUMBER 
 DETERMINISTIC
 AS MLE MODULE sneaker_logic
-SIGNATURE 'calculatePrice(any, number)';
+SIGNATURE 'calculatePrice(object, number)';
 /
 
 -- 2. Procedure Wrapper for Purchase Transaction
