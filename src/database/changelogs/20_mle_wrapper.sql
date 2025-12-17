@@ -50,13 +50,20 @@ export function purchase(sneakerId, size, userId, isPremium) {
     /* 1. Lock Row (SELECT ... FOR UPDATE) */
     /* Using simple concatenation for ID is safe as it's number, but binds are better. */
     /* 23ai MLE session.execute returns an Iterable (not a legacy result set with .next()) */
-    const rows = Array.from(session.execute(
-        "SELECT data FROM sneakers WHERE id = :1 FOR UPDATE",
-        [sneakerId]
-    ));
+    /* Debugging Legacy Bind Issue */
+    let query = "SELECT data FROM sneakers WHERE id = :1 FOR UPDATE";
+    let binds = [sneakerId];
+
+    /* Force literal for ID=1 debugging */
+    if (sneakerId === 1) {
+        query = "SELECT data FROM sneakers WHERE id = 1 FOR UPDATE";
+        binds = [];
+    }
+    
+    const rows = Array.from(session.execute(query, binds));
 
     if (rows.length === 0) {
-        return { status: "FAIL", message: "Sneaker not found. ID=" + sneakerId + ", Type=" + typeof sneakerId };
+        return { status: "FAIL", message: "Sneaker not found (Hardcoded Debug). ID=" + sneakerId };
     }
 
     /* Retrieve JSON data (Column name is usually uppercase 'DATA') */
