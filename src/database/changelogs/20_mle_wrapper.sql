@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset sneaker_dev:mle_deploy_v1 runAlways:true endDelimiter:/
+--changeset sneaker_dev:mle_deploy_v1 runAlways:true endDelimiter:;;
 --comment Deploy MLE Module (Source in src/mle/sneaker_logic.js)
 -- Usage: script <loader_script> <source_file> <module_name>
 
@@ -95,7 +95,7 @@ export function purchase(sneakerId, size, userId, isPremium) {
     return { status: "SUCCESS", message: "Purchased", price: finalPrice };
 }
 
-/
+;;
 
 -- Check for errors and Raise if Invalid
 DECLARE
@@ -111,7 +111,7 @@ BEGIN
         raise_application_error(-20001, 'SNEAKER_LOGIC is INVALID: ' || CHR(10) || v_err_msg);
     END IF;
 END;
-/
+;;
 
 
 --rollback DROP MLE MODULE sneaker_logic;
