@@ -95,7 +95,12 @@ export function purchase(sneakerId, size, userId, isPremium) {
 }
 /
 
--- Check for errors
-SELECT line, position, text FROM user_errors WHERE name = 'SNEAKER_LOGIC' ORDER BY line, position;
+-- Check for errors and status
+PROMPT ** STATUS CHECK **
+SELECT object_name, object_type, status FROM user_objects WHERE object_name = 'SNEAKER_LOGIC';
+
+PROMPT ** ERROR CHECK **
+SELECT name, type, sequence, line, position, text FROM user_errors WHERE name = 'SNEAKER_LOGIC' ORDER BY sequence;
+
 
 --rollback DROP MLE MODULE sneaker_logic;
