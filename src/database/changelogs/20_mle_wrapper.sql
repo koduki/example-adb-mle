@@ -48,41 +48,12 @@ export function purchase(sneakerId, size, userId, isPremium) {
     if (!session) throw new Error("No database session available");
 
     /* 1. Lock Row (SELECT ... FOR UPDATE) */
-    /* Using simple concatenation for ID is safe as it's number, but binds are better. */
-    /* 23ai MLE session.execute returns an Iterable (not a legacy result set with .next()) */
-    /* Debugging Legacy Bind Issue */
-    let query = "SELECT data FROM sneakers WHERE id = :1 FOR UPDATE";
-    let binds = [sneakerId];
+    /* Oracle 23ai MLE (JS) returns object { metaData: ..., rows: [...] } */
+    const result = session.execute("SELECT data FROM sneakers WHERE id = :1 FOR UPDATE", [sneakerId]);
+    const rows = result.rows;
 
-    /* Force literal for ID=1 debugging */
-    if (sneakerId === 1) {
-        query = "SELECT data FROM sneakers WHERE id = 1 FOR UPDATE";
-        binds = [];
-    }
-    
-    const rows = Array.from(session.execute(query, binds));
-    
-    if (rows.length === 0) {
-        let debugMsg = "Sneaker not found (API Debug).";
-        try {
-            let res = session.execute("SELECT 'OK' AS RES FROM DUAL");
-            debugMsg += " ResType=" + typeof res;
-            debugMsg += " Keys=" + JSON.stringify(Object.keys(res));
-            // Check prototype methods
-            let proto = Object.getPrototypeOf(res);
-            if (proto) {
-                debugMsg += " ProtoKeys=" + JSON.stringify(Object.getOwnPropertyNames(proto));
-            }
-            debugMsg += " HasRowsProp=" + (res.rows !== undefined);
-            
-            // Try explicit fetch if fetch method exists
-            if (typeof res.fetch === 'function') {
-                 debugMsg += " CallFetch=" + JSON.stringify(res.fetch());
-            }
-        } catch (e) {
-            debugMsg += " DBError=" + e.message;
-        }
-        return { status: "FAIL", message: debugMsg };
+    if (!rows || rows.length === 0) {
+        return { status: "FAIL", message: "Sneaker not found. ID=" + sneakerId };
     }
 
     /* Retrieve JSON data (Column name is usually uppercase 'DATA') */
