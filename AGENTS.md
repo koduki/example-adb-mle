@@ -1,0 +1,62 @@
+# Oracle MLE & Liquibase Deployment Tips
+
+This document collects important lessons learned and debugging tips for deploying Oracle MLE (JavaScript) modules using Liquibase and SQLcl.
+
+## 1. MLE Module Syntax (`CREATE MLE MODULE`)
+
+When embedding JavaScript code directly in a SQL changelog, follow these rules strictly:
+
+*   **No Quotes**: Do not use `q'~...~'` or invalid quoting mechanisms for the body. Use the `AS` keyword followed immediately by the raw JavaScript code.
+*   **Terminator is Mandatory**: You **MUST** end the module definition with a forward slash (`/`) on a new line after the JavaScript code. Without this, SQLcl treats the subsequent SQL as part of the JS code, causing syntax errors.
+
+**Bad:**
+```sql
+CREATE MLE MODULE my_mod LANGUAGE JAVASCRIPT AS q'~ ... ~';
+-- Missing /
+```
+
+**Good:**
+```sql
+CREATE MLE MODULE my_mod LANGUAGE JAVASCRIPT AS
+export function test() { return 1; }
+/ 
+-- Slash is critical!
+```
+
+## 2. PL/SQL Wrapper Signatures (`SIGNATURE`)
+
+Mapping PL/SQL types to JavaScript types requires specific signatures.
+
+*   **JSON Handling**: Do **NOT** use `any` in the signature map even if the PL/SQL parameter is `JSON`. Use `object`.
+    *   ❌ `SIGNATURE 'calculate(any)'` -> Causes `PLS-00905` (Invalid Object)
+    *   ✅ `SIGNATURE 'calculate(object)'`
+
+## 3. Liquibase Formatted SQL Headers
+
+Any SQL file used as a changelog (included via `include file=...`) **MUST** start with the Liquibase header.
+
+```sql
+--liquibase formatted sql
+```
+
+If this header is missing, Liquibase treats it as a "Raw SQL File". Raw SQL files:
+1.  Do not support `runOnChange:true`.
+2.  Will fail checksum validation if modified (Liquibase expects them to be immutable).
+3.  Might be skipped entirely if Liquibase thinks the "Raw File" was already run.
+
+## 4. ORDS Enablement Idempotency
+
+`ORDS.ENABLE_SCHEMA` throws `ORA-20049` if the schema is already enabled. Always wrap it in an idempotency check:
+
+```sql
+SELECT COUNT(*) INTO v_count FROM user_ords_schemas WHERE status = 'ENABLED';
+IF v_count = 0 THEN
+    ORDS.ENABLE_SCHEMA(...);
+END IF;
+```
+
+## 5. Troubleshooting "No Changes Found"
+
+If Liquibase says "Update Successful" but your verification fails (e.g., function missing):
+1.  **Check Git on Target**: Did you run `git pull` on the VM/Client?
+2.  **Check Changeset ID**: If `runOnChange` fails to trigger, change the `id` of the changeset (e.g., `v1` -> `v2`) to force a re-run.
