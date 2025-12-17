@@ -9,8 +9,17 @@
 // In SQLcl 'script file.js arg1 arg2', args is an array of arguments.
 // args[0] = arg1, args[1] = arg2
 
+var System = Java.type("java.lang.System");
+
+System.out.println("DEBUG: install_mle.js started");
+System.out.println("DEBUG: args.length = " + args.length);
+for (var i = 0; i < args.length; i++) {
+    System.out.println("DEBUG: args[" + i + "] = " + args[i]);
+}
+
 if (args.length < 2) {
-    ctx.write("Error: Missing arguments. Usage: script install_mle.js <js_path> <module_name>\n");
+    System.out.println("Error: Missing arguments. Usage: script install_mle.js <js_path> <module_name>");
+    // ctx.write("Error: Missing arguments. Usage: script install_mle.js <js_path> <module_name>\n");
     // Java.type("java.lang.System").exit(1); // Do not kill the session, just throw
     throw "Missing arguments";
 }
