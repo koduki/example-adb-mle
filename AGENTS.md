@@ -30,6 +30,16 @@ export function test() { return 1; }
 -- Slash is critical!
 ```
 
+### Advanced: Custom Delimiters
+If you absolutely must use `//` comments or need alternative termination, you can configure the delimiter in the changeset header:
+
+```sql
+--changeset user:id runAlways:true endDelimiter:;;
+CREATE MLE MODULE ...
+;;
+```
+*Note: This requires inconsistent usage of `;` vs `;;` vs `/` across your files, so using standard `/` with sanitized comments is generally preferred for consistency.*
+
 ## 2. PL/SQL Wrapper Signatures (`SIGNATURE`)
 
 Mapping PL/SQL types to JavaScript types requires specific signatures.
