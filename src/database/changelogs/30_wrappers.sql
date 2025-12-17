@@ -1,3 +1,5 @@
+--liquibase formatted sql
+
 --changeset sneaker_dev:wrappers_v1 runOnChange:true
 --comment Create PL/SQL Wrappers linking to MLE
 -- force retry full logic restoration v1
