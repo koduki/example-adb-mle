@@ -4,14 +4,21 @@
 --comment ORDS Services Definition
 
 BEGIN
-  -- Enable ORDS for the current schema
-  ORDS.ENABLE_SCHEMA(
-    p_enabled             => TRUE,
-    p_schema              => USER,
-    p_url_mapping_type    => 'BASE_PATH',
-    p_url_mapping_pattern => 'sneakerheadz',
-    p_auto_rest_auth      => FALSE
-  );
+  -- Enable ORDS for the current schema if not already enabled
+  DECLARE
+    v_count NUMBER;
+  BEGIN
+    SELECT COUNT(*) INTO v_count FROM user_ords_schemas WHERE status = 'ENABLED';
+    IF v_count = 0 THEN
+        ORDS.ENABLE_SCHEMA(
+            p_enabled             => TRUE,
+            p_schema              => USER,
+            p_url_mapping_type    => 'BASE_PATH',
+            p_url_mapping_pattern => 'sneakerheadz',
+            p_auto_rest_auth      => FALSE
+        );
+    END IF;
+  END;
 
   -- MODULE: sneaker_v1
   
