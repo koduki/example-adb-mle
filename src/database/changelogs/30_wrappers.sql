@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset sneaker_dev:wrappers_v3_full runOnChange:true
+--changeset sneaker_dev:wrappers_v4_final runOnChange:true
 --comment Create PL/SQL Wrappers linking to MLE
 -- Restoring full business logic
 
