@@ -14,7 +14,8 @@ export function calculatePrice(data, isPremium) {
     const isCollab = !!data.is_collab;
 
     // SQLからのブーリアン入力（通常0 または 1）を正規化
-    const premiumFlag = (isPremium === true || isPremium === 1);
+    // Also handle string "true"/"false" from query params
+    const premiumFlag = (isPremium === true || isPremium === 1 || isPremium === 'true' || isPremium === '1');
 
     let priceJpy = priceUsd * RATE_USD_JPY;
 
@@ -30,97 +31,108 @@ export function calculatePrice(data, isPremium) {
  * トランザクションを伴う購入ロジック。
  * ワンショット・トランザクションとしてカプセル化されています。
  * 
+ * @param {object} pool - Database pool/client
  * @param {number} sneakerId
  * @param {string} size
  * @param {string} userId
  * @param {boolean|number} isPremium
  */
-export function purchase(sneakerId, size, userId, isPremium) {
-    if (!session) throw new Error("データベースセッションが利用できません");
+export async function purchase(pool, sneakerId, size, userId, isPremium) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
 
-    /* 0. Bot対策: 過去1分間の購入回数をチェック */
-    const recentOrders = Array.from(session.execute(
-        "SELECT count(*) as cnt FROM orders WHERE user_id = :1 AND ordered_at > SYSDATE - 1/1440",
-        [userId]
-    ).rows || []);
+        /* 0. Bot対策: 過去1分間の購入回数をチェック */
+        const recentOrdersRes = await client.query(
+            "SELECT count(*) as cnt FROM orders WHERE user_id = $1 AND ordered_at > NOW() - INTERVAL '1 minute'",
+            [userId]
+        );
 
-    // カラム名は通常大文字 ('CNT')。念のため Object.values でも取得
-    const purchaseCount = (recentOrders.length > 0) ? (recentOrders[0].CNT || Object.values(recentOrders[0])[0] || 0) : 0;
+        const purchaseCount = parseInt(recentOrdersRes.rows[0].cnt || 0, 10);
 
-    if (purchaseCount >= 3) {
-        return { status: "REJECTED", message: `Bot検知: 短時間に購入が集中しています (購入回数: ${purchaseCount})` };
+        if (purchaseCount >= 3) {
+            await client.query('ROLLBACK');
+            return { status: "REJECTED", message: `Bot検知: 短時間に購入が集中しています (購入回数: ${purchaseCount})` };
+        }
+
+        /* 1. 行ロック (SELECT ... FOR UPDATE) */
+        const rowsRes = await client.query(
+            "SELECT data FROM sneakers WHERE id = $1 FOR UPDATE",
+            [sneakerId]
+        );
+
+        if (rowsRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return { status: "FAIL", message: "スニーカーが見つかりません" };
+        }
+
+        // JSONデータの取得
+        let snkData = rowsRes.rows[0].data;
+        if (typeof snkData === 'string') {
+            snkData = JSON.parse(snkData);
+        }
+
+        // 2. 在庫チェック
+        if (!snkData.sizes || snkData.sizes[size] === undefined) {
+             await client.query('ROLLBACK');
+            return { status: "FAIL", message: "無効なサイズです" };
+        }
+
+        if (snkData.sizes[size] <= 0) {
+             await client.query('ROLLBACK');
+            return { status: "FAIL", message: "在庫切れです" };
+        }
+
+        // 3. 在庫を減らす (メモリ内)
+        snkData.sizes[size] = Number(snkData.sizes[size]) - 1;
+
+        // 4. 最終価格の計算
+        const finalPrice = calculatePrice(snkData, isPremium);
+
+        /* 5. SNEAKERSテーブルの更新 (JSONの書き戻し) */
+        await client.query(
+            "UPDATE sneakers SET data = $1 WHERE id = $2",
+            [snkData, sneakerId]
+        );
+
+        /* 6. 注文情報の挿入 */
+        await client.query(
+            "INSERT INTO orders (sneaker_id, user_id, amount) VALUES ($1, $2, $3)",
+            [sneakerId, userId, finalPrice]
+        );
+
+        await client.query('COMMIT');
+        return { status: "SUCCESS", message: "購入完了", price: finalPrice };
+
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
     }
-
-    /* 1. 行ロック (SELECT ... FOR UPDATE) */
-    /* 23ai MLEのsession.executeはIterableを返します */
-    const rows = Array.from(session.execute(
-        "SELECT data FROM sneakers WHERE id = :1 FOR UPDATE",
-        [sneakerId]
-    ).rows || []);
-
-    if (rows.length === 0) {
-        return { status: "FAIL", message: "スニーカーが見つかりません" };
-    }
-
-    // JSONデータの取得 (カラム名は通常大文字の 'DATA' だが、念のため小文字もチェック)
-    let colVal = rows[0].DATA || rows[0].data;
-    let snkData = (typeof colVal === 'string') ? JSON.parse(colVal) : colVal;
-
-    // 2. 在庫チェック
-    if (!snkData.sizes || snkData.sizes[size] === undefined) {
-        return { status: "FAIL", message: "無効なサイズです" };
-    }
-
-    if (snkData.sizes[size] <= 0) {
-        return { status: "FAIL", message: "在庫切れです" };
-    }
-
-    // 3. 在庫を減らす (メモリ内)
-    snkData.sizes[size] = Number(snkData.sizes[size]) - 1;
-
-    // 4. 最終価格の計算
-    const finalPrice = calculatePrice(snkData, isPremium);
-
-    /* 5. SNEAKERSテーブルの更新 (JSONの書き戻し) */
-    session.execute(
-        "UPDATE sneakers SET data = :1 WHERE id = :2",
-        [JSON.stringify(snkData), sneakerId]
-    );
-
-    /* 6. 注文情報の挿入 */
-    session.execute(
-        "INSERT INTO orders (sneaker_id, user_id, amount) VALUES (:1, :2, :3)",
-        [sneakerId, userId, finalPrice]
-    );
-
-    return { status: "SUCCESS", message: "購入完了", price: finalPrice };
 }
 
 /**
  * 予算内のスニーカーをJavaScript側でフィルタリングして検索します。
- * 検索結果に対してビジネスロジックを適用するMLEの能力を示しています。
  * 
+ * @param {object} pool - Database pool
  * @param {boolean|number} isPremium
  * @param {number} budget
  */
-export function searchSneakers(isPremium, budget) {
-    if (!session) throw new Error("データベースセッションが利用できません");
-
+export async function searchSneakers(pool, isPremium, budget) {
     // 全スニーカーを取得
-    // 大規模なアプリではSQL側での基本的な絞り込みを併用しますが、
-    // ここではJSによる完全なフィルタリングのデモを行います。
-    const rows = Array.from(session.execute("SELECT id, data FROM sneakers").rows || []);
+    const res = await pool.query("SELECT id, data FROM sneakers");
 
-    return rows
+    return res.rows
         .map(row => {
-            // カラム名のケース（大文字/小文字）に対応
-            const id = row.ID || row.id;
-            const dataStr = row.DATA || row.data;
+            let snkData = row.data;
+            if (typeof snkData === 'string') {
+                snkData = JSON.parse(snkData);
+            }
 
-            const snkData = (typeof dataStr === 'string') ? JSON.parse(dataStr) : (dataStr || {});
             const price = calculatePrice(snkData, isPremium);
             return {
-                id: id,
+                id: row.id,
                 model: snkData.model,
                 price: price,
                 sizes: snkData.sizes
