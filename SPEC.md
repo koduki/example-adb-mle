@@ -128,7 +128,7 @@ APIサーバー(Node.js)を廃止するため、全てのビジネスロジッ�
       * プレミアム会員かつ非コラボモデルの場合、10%割引。
       * **DETERMINISTIC属性**を付与し、SQLからインデックス化可能にする。
 
-**Function: `purchaseSneaker(sneakerId, size, userId, isPremium)`**
+**Function: `purchase(sneakerId, size, userId, isPremium)`**
 
   * **用途:** 購入トランザクション (One-Shot)。
   * **処理フロー:**
@@ -208,7 +208,7 @@ Red Corner (Cloudflare + Supabase) と Blue Corner (GCLB + ODB) に対し、負�
 ## 8\. 実装ステップ
 
 1.  **GCP/Oracle環境接続:** ODB@GCPのインスタンス払い出しと、GCP VPCとのピアリング設定。
-2.  **DB実装:** `setup.sql` (テーブル), `mle_logic.sql` (JS/FBI), `ords_route.sql` (API) の順に実行。
+2.  **DB実装:** Liquibaseを使用し `src/database/controller.xml` を適用することで、テーブル・MLEロジック・ORDS定義を一括デプロイ。
 3.  **GCLB構築:** Serverless NEGを作成し、ORDSのエンドポイントに向ける。Cloud Armorポリシー適用。
 4.  **負荷試験:** k6スクリプトを作成し、世界各国のリージョンから攻撃をシミュレートする。
 

@@ -28,7 +28,7 @@ graph TD
 
 ユーザーが `POST /api/buy` を叩いたとき、システム内部では以下のようにバトンが渡されます。
 
-#### A. 入り口: ORDS (src/ords/sneaker_api.sql)
+#### A. 入り口: ORDS (src/database/changelogs/50_ords.sql)
 HTTPリクエストを受け取り、JSONボディの値（`id`, `size` 等）を自動的にバインド変数に変換して PL/SQL を呼び出します。
 ```sql
 ORDS.DEFINE_SERVICE(
@@ -37,14 +37,14 @@ ORDS.DEFINE_SERVICE(
 );
 ```
 
-#### B. 橋渡し: PL/SQL Wrapper (src/plsql/wrappers.sql)
+#### B. 橋渡し: PL/SQL Wrapper (src/database/changelogs/30_wrappers.sql)
 プロシージャ `buy_kicks` は、単なる「土管」として機能し、実際の処理をJavaScript関数 `purchase` へ委譲します。
 ```sql
 -- JSの 'purchase' 関数へマッピング
 SIGNATURE 'purchase(number, string, string, number)';
 ```
 
-#### C. コアロジック: MLE JavaScript (src/mle/sneaker_logic.js)
+#### C. コアロジック: MLE JavaScript (src/database/changelogs/20_mle_wrapper.sql)
 ここが心臓部です。GraalVM上で動作するJavaScriptが、データベースと直結してビジネスロジックを実行します。
 
 1.  **行ロックによる同時実行制御**:
@@ -76,18 +76,6 @@ SIGNATURE 'purchase(number, string, string, number)';
 - `ADMIN` 権限を持つユーザー、もしくは `DB_DEVELOPER_ROLE` を持つユーザー
 - Linux 環境 または GitHub Actions (CI/CD)
 - **SQLcl** がインストールされていること
-
-## ディレクトリ構成
-```text
-/
-├── .github/workflows/   # GitHub Actions (CI/CD) 定義
-├── deploy.sh            # デプロイ用スクリプト (Bash)
-├── src/
-│   ├── database/        # テーブル定義 (DDL)
-│   ├── mle/             # MLE JavaScript ロジック (.js)
-│   ├── plsql/           # PL/SQL ラッパー
-│   └── ords/            # ORDS API 定義
-```
 
 ## ディレクトリ構成
 ```text
