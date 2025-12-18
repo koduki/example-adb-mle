@@ -14,6 +14,7 @@
   },
   "scripts": {
     "start": "functions-framework --target=sneakerApi",
-    "test": "node tests/verify_local.js"
+    "test": "node tests/verify_local.js",
+    "db:init": "node scripts/init_db.js"
   }
 }

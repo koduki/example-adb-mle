@@ -27,13 +27,25 @@
     GRANT ALL ON SCHEMA public TO sneaker_user;
     ```
 
-3.  **スキーマのデプロイ**
-    `db/schema/tables.sql` を使用してテーブルを作成します。
+3.  **スキーマのデプロイと初期データの投入**
+
+    付属のスクリプトを使用して、テーブルの作成と初期データの投入（シードデータ）を一括で行うことができます。
+    環境変数を設定後、以下のコマンドを実行してください。
+
     ```bash
-    # プロジェクトルートから実行する場合
-    psql -h <ALLOYDB_IP> -U postgres -d sneakers -f web-app/db/schema/tables.sql
+    # web-app ディレクトリに移動
+    cd web-app
+
+    # 環境変数の設定 (例)
+    export DB_HOST=<ALLOYDB_IP>
+    export DB_USER=sneaker_user
+    export DB_PASSWORD=password
+
+    # 初期化スクリプトの実行
+    npm run db:init
     ```
-    ※ Liquibase 形式のコメントが含まれていますが、標準的な SQL クライアントでも DDL 部分は実行可能です。
+
+    または、手動で `db/schema/tables.sql` を実行してテーブルのみを作成することも可能です。
 
 ### 2. Cloud Run Functions のデプロイ
 
