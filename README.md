@@ -81,15 +81,14 @@ SIGNATURE 'purchase(number, string, string, number)';
 ```text
 /
 ├── .github/workflows/   # GitHub Actions (CI/CD) 定義
-├── src/
-│   └── database/
-│       ├── controller.xml       # Root Changelog (includeAll で一括読込)
-│       └── changelogs/          # Liquibase 定義ファイル (実行順序はプレフィックスで制御)
-│           ├── 10_tables.sql
-│           ├── 20_mle_wrapper.sql
-│           ├── 30_wrappers.sql
-│           ├── 40_indexes.sql
-│           └── 50_ords.sql
+├── db/                  # データベース定義 (Liquibase)
+│   ├── controller.xml       # Root Changelog
+│   └── changelogs/          # SQL Changelogs
+├── scripts/             # NPM Build/Deploy Scripts
+├── src/                 # アプリケーションロジック (JavaScript)
+│   └── sneaker_logic.js
+├── test/                # ユニットテスト (Vitest)
+└── tools/               # 開発用・デバッグ用スクリプト
 ```
 
 ## デプロイ手順 (SQLcl & Liquibase)

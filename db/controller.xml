@@ -6,6 +6,6 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
 
   <!-- Include all changelogs in alphabetical order (10_..., 20_...) -->
-  <includeAll path="src/database/changelogs/" relativeToChangelogFile="false"/>
+  <includeAll path="changelogs/" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

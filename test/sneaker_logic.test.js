@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { calculatePrice, purchase } from './sneaker_logic.js';
+import { calculatePrice, purchase } from '../src/sneaker_logic.js';
 
 describe('calculatePrice', () => {
     it('should calculate basic price correctly', () => {

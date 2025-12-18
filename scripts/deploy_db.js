@@ -26,7 +26,7 @@ const sql = spawn('sql', ['-S', '-cloudconfig', resolvedWallet, connectionString
 // Send Liquibase commands to stdin
 const commands = [
     'lb clear-checksums',
-    'lb update -changelog-file src/controller.xml',
+    'lb update -changelog-file db/controller.xml',
     'exit'
 ];
 
