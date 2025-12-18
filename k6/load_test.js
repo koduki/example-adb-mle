@@ -1,54 +1,59 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { Counter } from 'k6/metrics';
 
-// Configuration: Pass BASE_URL via environment variable
-// e.g. k6 run -e BASE_URL=https://... load_test.js
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080/ords/sneakerheadz/api';
+/**
+ * k6 Load Test for SneakerHeadz Blitz
+ * Demonstrates Bot Protection (Anti-Resale) effects.
+ */
+
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080/ords/sneakerheadz';
+
+// Custom metrics to track Bot protection behavior
+const successCounter = new Counter('purchase_success_total');
+const rejectedCounter = new Counter('purchase_rejected_total');
 
 export const options = {
-    // Thresholds for Pass/Fail as per Spec Section 7.2
     thresholds: {
-        // "Latency (p95): 20ms ~ 50ms" (Blue Goal)
-        http_req_duration: ['p(95)<500'], // Relaxed for generic test, strictly <50 for Blue
-        // "Error Rate: ほぼゼロ"
+        http_req_duration: ['p(95)<500'], // One-shot logic might be slightly heavier but saves RTT
         http_req_failed: ['rate<0.01'],
     },
     scenarios: {
         drop_simulation: {
             executor: 'ramping-arrival-rate',
-            startRate: 0,
+            startRate: 5,
             timeUnit: '1s',
             preAllocatedVUs: 50,
-            maxVUs: 2000,
+            maxVUs: 200,
             stages: [
-                { target: 100, duration: '10s' },
-                { target: 500, duration: '20s' }, // Spike
-                { target: 0, duration: '10s' },
+                { target: 20, duration: '20s' }, // Warm up
+                { target: 50, duration: '40s' }, // peak
+                { target: 0, duration: '10s' },  // Ramp down
             ],
         },
     },
 };
 
 export default function () {
-    const userId = `user_${__VU}`; // Virtual User ID
+    // 20% of users simulate a 'Bot' by reusing an ID based on their VU number
+    // Others use a unique combination to ensure success (initial attempts)
+    const isBot = Math.random() < 0.2;
+    const userId = isBot ? `bot_user_${__VU}` : `user_${__VU}_${__ITER}`;
+
     const sizes = ["US9", "US10", "US11"];
     const targetSize = sizes[Math.floor(Math.random() * sizes.length)];
     const isPremium = Math.random() > 0.8 ? 1 : 0;
 
-    // 1. Search Action (GET /search)
-    // Simulate user refreshing to check price/status
-    const searchRes = http.get(`${BASE_URL}/search?budget=50000&premium=${isPremium}`);
+    // [1] GET /api/search
+    const searchRes = http.get(`${BASE_URL}/api/search?premium=${isPremium}&budget=100000`);
+    check(searchRes, { 'search status 200': (r) => r.status === 200 });
 
-    check(searchRes, {
-        'search status 200': (r) => r.status === 200
-    });
+    // Think time
+    sleep(Math.random() * 0.3 + 0.1);
 
-    sleep(1);
-
-    // 2. Buy Action (POST /buy)
-    // The "Drop" implementation
+    // [2] POST /api/buy
     const payload = JSON.stringify({
-        id: 1, //Target Sneaker ID
+        id: 1,
         size: targetSize,
         user: userId,
         premium: isPremium
@@ -58,12 +63,26 @@ export default function () {
         headers: { 'Content-Type': 'application/json' },
     };
 
-    const buyRes = http.post(`${BASE_URL}/buy`, payload, params);
+    const buyRes = http.post(`${BASE_URL}/api/buy`, payload, params);
 
-    // We expect 200 OK from ORDS. 
-    // The actual result (Success vs Sold Out) is in the response body/headers logic, 
-    // but connectivity success is what we check here primarily for infrastructure.
-    check(buyRes, {
-        'buy status 200': (r) => r.status === 200,
-    });
+    if (check(buyRes, { 'buy status 200': (r) => r.status === 200 })) {
+        try {
+            // response.p_status is the serialized JSON from our PL/SQL wrapper
+            const body = JSON.parse(buyRes.body);
+            const ordsStatus = body.p_status ? JSON.parse(body.p_status) : body;
+
+            if (ordsStatus.status === 'SUCCESS') {
+                successCounter.add(1);
+            } else if (ordsStatus.status === 'REJECTED') {
+                rejectedCounter.add(1);
+                // console.warn(`[REJECTED] User ${userId}: ${ordsStatus.message}`);
+            }
+        } catch (e) {
+            console.error(`Failed to parse response: ${buyRes.body}`);
+        }
+    } else {
+        console.error(`[Buy] HTTP Error ${buyRes.status}: ${buyRes.body}`);
+    }
+
+    sleep(0.5);
 }

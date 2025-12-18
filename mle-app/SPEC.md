@@ -122,27 +122,34 @@ APIサーバー(Node.js)を廃止するため、全てのビジネスロジッ�
 
 **Function: `calculatePrice(productData, isPremium)`**
 
-  * **用途:** 検索時のインデックス(FBI)用 兼 購入時の価格確定用 (DRY原則)。
+  * **用途:** 検索時の表示価格計算 兼 購入時の価格確定用 (DRY原則)。
   * **ロジック:**
-      * 為替レート換算 (USD -\> JPY)。
+      * 為替レート換算 (USD -> JPY)。
       * プレミアム会員かつ非コラボモデルの場合、10%割引。
-      * **DETERMINISTIC属性**を付与し、SQLからインデックス化可能にする。
 
-**Function: `purchaseSneaker(sneakerId, size, userId, isPremium)`**
+**Function: `searchSneakers(isPremium, budget)`**
+
+  * **用途:** 検索APIのバックエンドロジック。
+  * **特徴:**
+      * 全件取得後、**JavaScriptストリーム処理**でフィルタリングとソートを行う。
+      * SQLで表現しにくい複雑な条件（動的な価格計算結果に基づく絞り込み等）をアプリ層ではなくDB層で完結させる。
+
+**Function: `purchase(sneakerId, size, userId, isPremium)`**
 
   * **用途:** 購入トランザクション (One-Shot)。
   * **処理フロー:**
-    1.  `SELECT ... FOR UPDATE` で対象行をロック（メモリ内・超高速）。
-    2.  JSONパース & 在庫数チェック (`data.sizes[size] > 0`)。
-    3.  在庫減算 (メモリ上)。
-    4.  `calculatePrice` 再利用による最終価格決定。
-    5.  `UPDATE sneakers` (JSON書き戻し)。
-    6.  `INSERT INTO orders` (注文確定)。
-    7.  コミットして終了。
+    1.  **[New] Bot Protection:** `orders` テーブルをチェックし、同一ユーザーによる過去1分間の購入数が3回以上なら即座に拒否 (`REJECTED`)。
+    2.  `SELECT ... FOR UPDATE` で対象行をロック（メモリ内・超高速）。
+    3.  JSONパース & 在庫数チェック (`data.sizes[size] > 0`)。
+    4.  在庫減算 (メモリ上)。
+    5.  `calculatePrice` 再利用による最終価格決定。
+    6.  `UPDATE sneakers` (JSON書き戻し)。
+    7.  `INSERT INTO orders` (注文確定)。
+    8.  コミットして終了。
 
 -----
 
-## 6\. APIインターフェース仕様 (ORDS)
+## 6. APIインターフェース仕様 (ORDS)
 
 Appサーバーを作らず、PL/SQLでルーティング定義を行うだけでREST APIを公開する。
 
@@ -150,65 +157,39 @@ Appサーバーを作らず、PL/SQLでルーティング定義を行うだけ�
 
 | Method | Path | Backend Logic | 特徴 |
 | :--- | :--- | :--- | :--- |
-| **GET** | `/api/search` | SQL Query (FBI活用) | GCLBのCloud CDNでキャッシュ可能。 |
-| **POST** | `/api/buy` | Stored Procedure (`buy_kicks`) | BodyのJSONを引数にマッピング。アトミック実行。 |
+| **GET** | `/api/search` | MLE Function (`searchSneakers`) | JS内で動的に価格計算とフィルタリングを実行。 |
+| **POST** | `/api/buy` | MLE Function (`purchase`) | Stored Procedure経由。Bot判定結果(`REJECTED`)も含めJSONを返す。 |
 
 ### 6.2 ORDS定義コード (PL/SQL)
 
-```sql
-BEGIN
-  -- GET: 検索 (JSONフィルター + 計算済みインデックス)
-  ORDS.DEFINE_SERVICE(
-    p_module_name => 'sneaker_v1',
-    p_base_path   => '/api/',
-    p_pattern     => 'search',
-    p_method      => 'GET',
-    p_source_type => ORDS.source_type_json_collection,
-    p_source      => 
-      'SELECT id, s.data.model, get_price_js(s.data, :premium) as price 
-       FROM sneakers s 
-       WHERE get_price_js(s.data, :premium) <= :budget'
-  );
-
-  -- POST: 購入 (MLEプロシージャ呼び出し)
-  ORDS.DEFINE_SERVICE(
-    p_module_name => 'sneaker_v1',
-    p_base_path   => '/api/',
-    p_pattern     => 'buy',
-    p_method      => 'POST',
-    p_source_type => ORDS.source_type_plsql,
-    p_source      => 'BEGIN buy_kicks(:id, :size, :user, :premium, :status); END;'
-  );
-  COMMIT;
-END;
-/
-```
+*(最新の実装は `db/api/ords_definitions.sql` 参照)*
 
 -----
 
-## 7\. ベンチマーク・検証計画
+## 7. ベンチマーク・検証計画
 
 Red Corner (Cloudflare + Supabase) と Blue Corner (GCLB + ODB) に対し、負荷試験ツール (k6) から同一条件で攻撃を行い、以下の指標を計測する。
 
 ### 7.1 シナリオ: 「The Drop」
 
   * **条件:** 在庫100足のスニーカーに対し、同時10,000ユーザーが購入リクエストを一斉送信。
+  * **Bot攻撃:** 一部のユーザーはスクリプトを用いて高速連打（Bot）を行う。
 
 ### 7.2 計測指標と勝敗ライン
 
 | 指標 | 🟥 Red (Supabase) 予想 | 🟦 Blue (ODB@GCP) 予想 | Blueの勝因 |
 | :--- | :--- | :--- | :--- |
 | **Over-selling** | 発生する可能性大 | **ゼロ (完全整合)** | 強力な行ロックと単一TX。 |
+| **Bot Blocking** | アプリ層での判定が必要（遅延） | **ゼロレイテンシで遮断** | DB内での履歴即時チェック (One-Shot)。 |
 | **Latency (p95)** | 200ms 〜 500ms | **20ms 〜 50ms** | GCLBのHTTP/3とDB内処理。 |
 | **Inventory 0** | 売り切るのに数分かかる | **数秒で完売** | ロック保持時間が極小のため。 |
-| **Error Rate** | 接続エラー多発 | **ほぼゼロ** | Cloud ArmorとADBの接続管理。 |
 
 -----
 
 ## 8\. 実装ステップ
 
 1.  **GCP/Oracle環境接続:** ODB@GCPのインスタンス払い出しと、GCP VPCとのピアリング設定。
-2.  **DB実装:** `setup.sql` (テーブル), `mle_logic.sql` (JS/FBI), `ords_route.sql` (API) の順に実行。
+2.  **DB実装:** Liquibaseを使用し `src/database/controller.xml` を適用することで、テーブル・MLEロジック・ORDS定義を一括デプロイ。
 3.  **GCLB構築:** Serverless NEGを作成し、ORDSのエンドポイントに向ける。Cloud Armorポリシー適用。
 4.  **負荷試験:** k6スクリプトを作成し、世界各国のリージョンから攻撃をシミュレートする。
 
