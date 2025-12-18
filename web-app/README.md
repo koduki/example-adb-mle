@@ -49,7 +49,8 @@
 
 ### 2. Cloud Run Functions のデプロイ
 
-Cloud Run Functions (第2世代) としてデプロイします。AlloyDB はプライベート IP を持つため、VPC コネクタまたは Direct VPC Egress の設定が必要です。
+Cloud Run Functions (第2世代) としてデプロイします。
+AlloyDB への低レイテンシな接続を実現するため、**Direct VPC Egress** の使用を推奨します。
 
 ```bash
 # web-app ディレクトリに移動
@@ -64,10 +65,27 @@ gcloud functions deploy sneakerApi \
   --entry-point=sneakerApi \
   --trigger-http \
   --allow-unauthenticated \
+  --min-instances=1 \
+  --network=<VPC_NETWORK> \
+  --subnet=<VPC_SUBNET> \
+  --vpc-egress=private-ranges-only \
   --set-env-vars DB_HOST=<ALLOYDB_IP>,DB_USER=sneaker_user,DB_PASSWORD=password,DB_NAME=sneakers,DB_PORT=5432
 ```
-※ `<ALLOYDB_IP>` は AlloyDB インスタンスのプライベート IP アドレスに置き換えてください。
-※ VPC 接続設定 (`--vpc-connector` など) を環境に合わせて追加してください。
+* `<ALLOYDB_IP>`: AlloyDB インスタンスのプライベート IP
+* `<VPC_NETWORK>`, `<VPC_SUBNET>`: AlloyDB が存在する VPC ネットワークとサブネット名
+
+## GCE からの低レイテンシ接続について
+
+GCE (Load Generator 等) から可能な限り低レイテンシで接続するため、以下の構成を推奨します。
+
+1.  **Direct VPC Egress の使用**:
+    上記のデプロイコマンドのように、`--network` と `--subnet` を指定して Direct VPC Egress を使用します。これにより、Serverless VPC Connector を経由せず、より高速に AlloyDB へアクセスできます。
+
+2.  **同一リージョン・同一 VPC**:
+    GCE、Cloud Run Functions、AlloyDB を全て同一リージョン (例: `asia-northeast1`) かつ同一 VPC 内に配置します。
+
+3.  **最小インスタンス数**:
+    `--min-instances=1` を指定して、コールドスタートによる遅延を回避します。
 
 ## テスト方法
 
