@@ -11,14 +11,25 @@ if (args.length < 2) {
 }
 
 const [walletPath, connectionString] = args;
-const resolvedWallet = path.resolve(walletPath);
 
-console.log(`Using Wallet: ${resolvedWallet}`);
+console.log(`Wallet Path/Mode: ${walletPath}`);
 console.log(`Connecting to: ${connectionString}`);
 
 // Construct SQLcl command
 // Note: SQLcl must be in the PATH
-const sql = spawn('sql', ['-S', '-cloudconfig', resolvedWallet, connectionString], {
+const sqlArgs = ['-S'];
+
+if (walletPath.toUpperCase() !== 'LOCAL') {
+    const resolvedWallet = path.resolve(walletPath);
+    console.log(`Using Wallet: ${resolvedWallet}`);
+    sqlArgs.push('-cloudconfig', resolvedWallet);
+} else {
+    console.log('Using Local Connection (No Wallet)');
+}
+
+sqlArgs.push(connectionString);
+
+const sql = spawn('sql', sqlArgs, {
     stdio: ['pipe', 'inherit', 'inherit'],
     shell: true
 });

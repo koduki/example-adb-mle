@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  oracle:
+    image: container-registry.oracle.com/database/free:latest
+    container_name: oracle23ai
+    ports:
+      - "1521:1521"
+      - "8080:8080"
+    environment:
+      - ORACLE_PWD=Welcome12345
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+      - ./scripts:/opt/oracle/scripts/startup
+    # healthcheck:
+    #   test: ["CMD", "/opt/oracle/checkDBStatus.sh"] # Verifying existence might be tricky without running, usually implicit in logs
+    #   interval: 60s
+    #   timeout: 30s
+    #   retries: 5
+
+volumes:
+  oracle_data:

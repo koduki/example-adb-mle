@@ -10,7 +10,10 @@
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.{js,json}\"",
     "build": "node scripts/build_mle.js",
-    "deploy": "npm run build && node scripts/deploy_db.js"
+    "deploy": "npm run build && node scripts/deploy_db.js",
+    "deploy:local": "pwsh -File scripts/deploy_local.ps1",
+    "test:unit": "vitest run tests/unit",
+    "test:it": "pwsh -File tests/integration/run_it.ps1"
   },
   "keywords": [
     "oracle",
