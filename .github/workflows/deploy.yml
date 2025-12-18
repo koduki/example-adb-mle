@@ -18,6 +18,19 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install & Build JS
+      run: |
+        npm ci
+        npm run lint
+        npm test
+        npm run build
+
     - name: Install SQLcl
       run: |
         curl -L -o sqlcl.zip https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip

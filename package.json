@@ -1,0 +1,26 @@
+{
+  "name": "example-adb-mle",
+  "version": "1.0.0",
+  "description": "Oracle Database MLE Logic for SneakerHeadz",
+  "main": "src/mle/sneaker_logic.js",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/mle",
+    "format": "prettier --write \"src/**/*.{js,json}\"",
+    "build": "node scripts/build_mle.js"
+  },
+  "keywords": [
+    "oracle",
+    "mle",
+    "javascript"
+  ],
+  "author": "SneakerHeadz Dev",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.0",
+    "vitest": "^1.0.0"
+  }
+}
