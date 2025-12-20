@@ -1,0 +1,20 @@
+{
+  "name": "web-app",
+  "version": "1.0.0",
+  "description": "Node.js AlloyDB Logic for SneakerHeadz",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.0.0",
+    "express": "^4.18.0",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "pg-mem": "^2.8.0"
+  },
+  "scripts": {
+    "start": "functions-framework --target=sneakerApi",
+    "test": "node tests/verify_local.js",
+    "db:init": "node scripts/init_db.js"
+  }
+}

@@ -1,0 +1,35 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: sneaker-api
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        autoscaling.knative.dev/minScale: "1"
+        run.googleapis.com/vpc-access-connector: projects/YOUR_PROJECT_ID/locations/asia-northeast1/connectors/alloydb-connector
+        run.googleapis.com/vpc-access-egress: all-traffic
+    spec:
+      containers:
+      - image: gcr.io/YOUR_PROJECT_ID/sneaker-api
+        env:
+        - name: DB_HOST
+          value: "127.0.0.1"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          value: "YOUR_PASSWORD"
+        - name: DB_NAME
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        ports:
+        - containerPort: 8080
+      - image: gcr.io/alloydb-connectors/alloydb-auth-proxy:latest
+        args:
+        - "projects/YOUR_PROJECT_ID/locations/asia-northeast1/clusters/YOUR_CLUSTER/instances/YOUR_INSTANCE"
+        - "--address=0.0.0.0"
+        - "--psc"
