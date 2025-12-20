@@ -40,7 +40,7 @@ app.post('/api/buy', async (req, res) => {
 
     // Validate inputs
     if (!id || !size || !user) {
-        return res.status(400).json({ status: "FAIL", message: "Missing required parameters: id, size, user" });
+      return res.status(400).json({ status: "FAIL", message: "Missing required parameters: id, size, user" });
     }
 
     const result = await purchase(pool, id, size, user, premium);

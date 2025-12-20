@@ -47,32 +47,55 @@
 
     または、手動で `db/schema/tables.sql` を実行してテーブルのみを作成することも可能です。
 
-### 2. Cloud Run Functions のデプロイ
+### 2. Cloud Run へのデプロイ (Sidecar パターン)
 
-Cloud Run Functions (第2世代) としてデプロイします。
-AlloyDB への低レイテンシな接続を実現するため、**Direct VPC Egress** の使用を推奨します。
+AlloyDB への安全な接続には、**AlloyDB Auth Proxy** の使用が推奨されます。
+Cloud Run Functions (第2世代) は Cloud Run 上で動作するため、サイドカーコンテナとして Auth Proxy を配置する構成（Cloud Run Service としてデプロイ）を採用します。
 
-```bash
-# web-app ディレクトリに移動
-cd web-app
+1.  **サービスの定義 (service.yaml)**
+    以下の `service.yaml` を作成します。`<PROJECT_ID>`, `<REGION>`, `<ALLOYDB_INSTANCE_URI>` などを適切に置き換えてください。
 
-# デプロイコマンド例
-gcloud functions deploy sneakerApi \
-  --gen2 \
-  --runtime=nodejs20 \
-  --region=asia-northeast1 \
-  --source=. \
-  --entry-point=sneakerApi \
-  --trigger-http \
-  --allow-unauthenticated \
-  --min-instances=1 \
-  --network=<VPC_NETWORK> \
-  --subnet=<VPC_SUBNET> \
-  --vpc-egress=private-ranges-only \
-  --set-env-vars DB_HOST=<ALLOYDB_IP>,DB_USER=sneaker_user,DB_PASSWORD=password,DB_NAME=sneakers,DB_PORT=5432
-```
-* `<ALLOYDB_IP>`: AlloyDB インスタンスのプライベート IP
-* `<VPC_NETWORK>`, `<VPC_SUBNET>`: AlloyDB が存在する VPC ネットワークとサブネット名
+    ```yaml
+    apiVersion: serving.knative.dev/v1
+    kind: Service
+    metadata:
+      name: sneaker-api
+      annotations:
+        run.googleapis.com/launch-stage: BETA
+    spec:
+      template:
+        metadata:
+          annotations:
+            run.googleapis.com/execution-environment: gen2
+            autoscaling.knative.dev/minScale: "1"
+        spec:
+          containers:
+          - image: us-docker.pkg.dev/cloudrun/container/hello # 実際にはビルドしたアプリのイメージを指定
+            env:
+            - name: DB_HOST
+              value: "127.0.0.1"
+            - name: DB_USER
+              value: "sneaker_user"
+            - name: DB_PASSWORD
+              value: "password"
+            ports:
+            - containerPort: 8080
+          - image: gcr.io/alloydb-connectors/alloydb-auth-proxy:latest
+            args:
+            - "<ALLOYDB_INSTANCE_URI>" # 例: projects/my-project/locations/asia-northeast1/clusters/my-cluster/instances/my-instance
+            - "--address=0.0.0.0"
+    ```
+
+    *アプリのコンテナイメージは、事前に `gcloud builds submit --tag ...` 等でビルドしておく必要があります。*
+
+2.  **デプロイ**
+
+    ```bash
+    gcloud run services replace service.yaml --region asia-northeast1
+    ```
+
+**補足:**
+もっと手軽に Cloud Run Functions のままデプロイしたい場合は、Node.js の **AlloyDB Connector ライブラリ** (`@google-cloud/alloydb-connector`) をコード内で使用する方法もありますが、Auth Proxy サイドカーパターンは言語に依存せず汎用的に利用可能です。
 
 ## GCE からの低レイテンシ接続について
 
