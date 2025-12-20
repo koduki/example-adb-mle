@@ -57,7 +57,7 @@ export default function () {
     const payload = JSON.stringify({
         id: 1,
         size: targetSize,
-        user: userId,
+        user_id: userId,
         premium: isPremium
     });
 

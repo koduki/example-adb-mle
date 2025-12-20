@@ -57,11 +57,11 @@ BEGIN
     p_method         => 'POST',
     p_source_type    => ORDS.source_type_plsql,
     p_source         => 'DECLARE
-                           v_res VARCHAR2(32767);
+                           v_status VARCHAR2(32767);
                          BEGIN
-                           buy_kicks(:id, :size, :user, :premium, v_res);
+                           buy_kicks(:id, :size, :user_id, :premium, v_status);
                            OWA_UTIL.MIME_HEADER(''application/json'');
-                           HTP.P(v_res);
+                           HTP.P(v_status);
                          END;'
   );
   

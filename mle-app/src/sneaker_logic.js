@@ -13,8 +13,8 @@ export function calculatePrice(data, isPremium) {
     const priceUsd = Number(data.price) || 0;
     const isCollab = !!data.is_collab;
 
-    // SQLからのブーリアン入力（通常0 または 1）を正規化
-    const premiumFlag = (isPremium === true || isPremium === 1);
+    // SQLからのブーリアン入力やORDSからの文字列入力を正規化
+    const premiumFlag = (isPremium === true || isPremium === 1 || isPremium === 'true' || isPremium === '1');
 
     let priceJpy = priceUsd * RATE_USD_JPY;
 
