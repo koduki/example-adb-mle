@@ -27,6 +27,6 @@
     "oracledb": "^6.10.0",
     "prettier": "^3.1.0",
     "testcontainers": "^11.10.0",
-    "vitest": "^1.0.0"
+    "vitest": "^4.0.16"
   }
 }
